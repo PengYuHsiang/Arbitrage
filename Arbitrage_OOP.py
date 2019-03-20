@@ -1,4 +1,3 @@
-from SP500 import SP500_Info
 import json
 import numpy as np
 import pandas as pd
@@ -6,14 +5,53 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from statsmodels.tsa.stattools import adfuller
 
-symbol=['BRK.B','BF.B']
-sp500_info=SP500_Info().load(exclude=symbol)
+class load_data:
+	def __init__(self,start='20100101',end='20190308'):
+		self.start=start
+		self.end=end
+		self.sp500_info=self.load_json()
+		self.data=self.aggregate_data()
+		
+	def load_json(self):
+		file=open('./sp500_info.json','r')
+		sp500_info=json.load(file)
+		return sp500_info
 
-df={}
-for sector in sp500_info:
-	com=sp500_info[sector]
-	industry=pd.DataFrame({symbol:pd.read_csv(f'C://Users/user/Desktop/Anjestan/data/{sector}/{symbol}.csv',index_col='Date')['Adj Close'] for symbol in com})
-	df[sector]=industry
+	def aggregate_data(self):
+		df={}
+		for sector in self.sp500_info:
+			com=self.sp500_info[sector]
+			industry=pd.DataFrame({symbol:pd.read_csv(f'./data/{sector}/{symbol}.csv',index_col='Date')['Adj Close'] for symbol in com})
+			industry.index=pd.to_datetime(industry.index)
+			industry=industry[self.start:self.end].copy()
+			df[sector]=industry.dropna(axis=1)
+		return df
+
+class get_pairs:
+	def __init__(self,start,end,cor=0.9,alpha=0.01):
+		self.start_date=start
+		self.end_date=end
+		self.correlation=cor
+		self.alpha=alpha
+		self.train_data=load_data(start=self.start_date,end=self.end_date).data
+
+	def examine_corr(self,train):
+		pairs_info={}
+		for sector in self.train_data:
+			data=self.train_data[sector].copy()
+			corr=np.abs(data.corr())
+			corr[corr<=self.correlation]=0
+			for i in corr.index:
+				corr[i][i]=0
+			corr.replace(0,np.nan,inplace=True)
+			corr.dropna(how='all',axis=1,inplace=True)
+			obs=corr.idxmax()
+			pairs_info[sector]={i:j for i,j in obs.items() if obs[j]==i}
+		return pairs_info
+
+	def stream_data(self,pairs_info):
+
+
 
 pairs_info={}
 for sector in sp500_info:
