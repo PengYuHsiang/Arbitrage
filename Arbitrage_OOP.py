@@ -34,6 +34,8 @@ class get_pairs:
 		self.correlation=cor
 		self.alpha=alpha
 		self.train_data=load_data(start=self.start_date,end=self.end_date).data
+		self.pairs=self.examine_corr(self.train_data)
+		self.qualify_pairs=self.unit_root_test()
 
 	def examine_corr(self,train):
 		pairs_info={}
@@ -47,9 +49,24 @@ class get_pairs:
 			corr.dropna(how='all',axis=1,inplace=True)
 			obs=corr.idxmax()
 			pairs_info[sector]={i:j for i,j in obs.items() if obs[j]==i}
-		return pairs_info
+		pairs=self.stream_corr(pairs_info)
+		return pairs
 
-	def stream_data(self,pairs_info):
+	def stream_corr(self,pairs_info):
+		pairs={}
+		for sector in self.train_data:
+			storage=[]
+			for i,j in pairs_info[sector].items():
+				if (j,i) not in storage:
+					storage.append((i,j))
+			pairs[sector]=storage
+		return pairs
+
+	def unit_root_test(self):
+		qualify={sector:[(i,j) for i,j in self.pairs[sector] if adfuller(self.train_data[sector][i]/self.train_data[sector][j])[1]<self.alpha] for sector in self.pairs}
+		return qualify
+
+
 
 
 
